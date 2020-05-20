@@ -1,38 +1,50 @@
 <template>
-  <div class="container">
-    <div>
-      <logo />
-      <h1 class="title">
-        ITEMS
-      </h1>
-       <v-autocomplete
-          v-model="item"
-          :items="searchOptions"
-          :loading="loadingItems"
-          :search-input.sync="search"
-          hide-no-data
-          item-text="name"
-          item-value="id"
-          label="Item"
-          placeholder="Item Zoeken"
-          clearable
-          return-object
-        ></v-autocomplete>
-       <v-card
-        class="mx-auto"
-        max-width="400"
-        tile
-      >
-        <v-list-item v-for="(item, index) in items" :key="index">
-          <v-list-item-content>
-            <v-list-item-title>
-                {{ item.name }}
-            </v-list-item-title>
-          </v-list-item-content>
-        </v-list-item>
-      </v-card>
+ <v-app>
+    <div class="container">
+      <div>
+        <logo />
+        <h1 class="title">
+          ITEMS
+        </h1>
+          <v-text-field
+              label="Item Zoeken"
+              v-model="search"
+              :loading="loadingItems"
+          ></v-text-field>
+        <v-card
+          class="mx-auto"
+          max-width="400"
+          tile
+        >
+          <v-list-item v-for="(item, index) in items" :key="index">
+            <v-list-item-content>
+              <v-list-item-title @click="showOverlay(item)">
+                  {{ item.name }}
+              </v-list-item-title>
+            </v-list-item-content>
+          </v-list-item>
+        </v-card>
+      </div>
+      <v-dialog v-model="overlay" max-width="344">
+        <v-card
+          class="mx-auto"
+          max-width="344"
+          outlined
+        >
+          <v-list-item three-line>
+            <v-list-item-content>
+              <div class="overline mb-4">{{"Item ID : " + selectedItem.id }}</div>
+              <v-list-item-title class="headline mb-1">{{ selectedItem.name }}</v-list-item-title>
+              <v-list-item-subtitle>{{"Price : " + selectedItem.price}}</v-list-item-subtitle>
+            </v-list-item-content>
+          </v-list-item>
+          <v-card-actions>
+            <v-btn text @click="overlay = false">Sluiten</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
     </div>
-  </div>
+  </v-app>
 </template>
 
 <script>
@@ -43,15 +55,18 @@ export default {
    data () {
     return {
       items: [],
-      item: null,
-      searchOptions: [],
       search: '',
-      loadingItems: false
+      loadingItems: false,
+      overlay: false,
+      selectedItem: {
+        id: null,
+        name: null,
+        price: null
+      }
     }
   },
   async asyncData ({ $axios }) {
     const data = await $axios.$get('/api/get-items')
-    console.log(data);
     return {items: data}
   },
   head () {
@@ -66,8 +81,7 @@ export default {
      makeSearch: async (value, self) => {
         // Handle empty value
         if (!value) {
-          self.searchOptions = [];
-          self.item = '';
+          self.items = await self.$axios.$get('/api/get-items');
         }
         // Items have already been requested
         if (self.loadingItems) {
@@ -76,19 +90,25 @@ export default {
 
         self.loadingItems = true
 
-        await self.$axios.$get('/api/get-item', {
+        self.items = await self.$axios.$get('/api/get-items', {
           params: {
             name: value
           }
         }).finally(() => { self.loadingItems = false; });
+    },
+    async showOverlay (item) {
+      var foundItem = await this.$axios.$get('/api/get-item', {
+        params: {
+          id: item.id
+        }
+      });
+
+      this.selectedItem = foundItem;
+      this.overlay = true;
     }
   },
   watch: {
     search(value) {
-      if(!value) {
-        return
-      }
-
       this.makeSearch(value, this);
 
     }
